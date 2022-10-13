@@ -157,26 +157,57 @@ LUx = Pb (Solve this by using forward and backward substitution)
 
 function LUPsolve(A, b)
     (L, U, P) = computeLUP(A)
+    @assert L*U ≈ P*A
     
     N = size(L)[1]
     y = zeros(N, 1)
+    #L[2,1] y[1] + L[2,2] y[2] = b[2]
     #l[3,1] y[1] + l[3,2] y[2] + l[3.3] y[3] = b3
+
+    #y[2] = b[2] - (L[2,1] y[1]) / L[2, 2]
     #y[3] = b[3] - (l[3,1] y[1] + l[3,2] y[2]) / l[3,3]
-    c = copy(b)
-    tmpDot = ones(N, 1)
-
-    y[1] = c[1] / L[1, 1]
-
     
-    #solve Ly = ᵬ for y using forward substitution - dot(c[i], L[i, i]))/
-    for i = 2:N
-        tmpDot = 0
-        for j = 1:N
-            tmpDot .= tmpDot + L[i, 1:j] * y[1:j]
+    c = copy(b)
+    c .= P*c
+    y[1] = c[1] / L[1, 1]
+    #solve Ly = ᵬ for y using forward substitution
+    for k = 2:N
+        tmp = 0
+        for i = 1:k-1
+            tmp += L[k, i] * y[i]
         end
-        y[i] = (c[i] - tmpDot) / L[i, i]
+        y[k] = c[k] - (tmp)/L[k,k]
     end
-    println("\n", y)
+    println("\n", "\n","*-*-*-*-*FINAL VALUES*-*-*-*-*")
+    println("\n", "Solved Ly = ᵬ for y: ", y)
+
+
+    #solve Ux = y for x using backward substitution
+    #U[N, N]   x[N] = y[N]
+    #U[N-1, N] x[N] + U[N-1, N-1] x[N-1] = y[N-1]
+    #U[N-2, N] x[N] + U[N-2, N-1] x[N-1] + U[N-2, N-2] x[N-2] = y[N-2]
+
+    #x[N] = y[N] / U[N, N]
+    #x[N-1] = y[N-1] - (U[N-1, N] x[N]) / U[N-1, N-1]
+    #x[N-2] = y[N-2] - (U[N-2, N] x[N] + U[N-2, N-1] x[N-1]) / U[N-2, N-2]
+    
+    u = copy(U)
+    x = zeros(N, 1)
+    x[N] = y[N] / U[N, N]
+    for k = N-1:-1:1
+        tmp = 0
+        for i = N:-1:k+1
+            tmp += U[k, i] * x[i]
+        end
+        x[k] = y[k] - (tmp)/U[k,k]
+    end
+    println("\n", "Solved Ux = y for x: ", x)
+    #@assert A*x ≈ b
+    println("\n A*x: ", A*x)
+    println("\n b: ", b)
+    norm = sqrt(adjoint(A*x-b)*(A*x-b))
+    println("\n", norm[1])
+    @assert norm[1] ≈ 0
     return
 
 end
@@ -203,8 +234,8 @@ println("BBBBB: ", b)
 #(L, U, P) = computeLUP(A)
 LUPsolve(A, b)
 
-println("\n", "\n","*-*-*-*-*FINAL VALUES*-*-*-*-*")
 
+#=
 println("L:")
 show(stdout, "text/plain", L)
 println("\n", "U:")
@@ -214,3 +245,4 @@ show(stdout, "text/plain", P)
 
 
 @assert L*U ≈ P*A "P*A is not equal to L*U"
+=#
