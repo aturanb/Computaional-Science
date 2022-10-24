@@ -1,31 +1,15 @@
-using Plots # add Plots.jl from the package manager if you have not already done so.
-
-# HW 1 starting script (if you want): contains function computeLU() - to compute an LU-factorization of square
-# matrix A, namely, A = LU, where L and U are lower and upper triangular matrices. 
-
+using Plots 
 
 """
-    computeLU(A)
-Compute and return LU factorization `LU = A` of square matrix `A`.  
-Might not work on all matrices, since no pivoting is done!
-
-# Examples (don't need examples, but fine to include)
-'''
-julia> A = [6 -2 2;12 -8 6;3 -13 3]
-3×3 Array{Int64,2}:
-  6   -2  2
- 12   -8  6
-  3  -13  3
-julia> (L, U) = computeLU(A)
-([1.0 0.0 0.0; 2.0 1.0 0.0; 0.5 3.0 1.0], [6.0 -2.0 2.0; 0.0 -4.0 2.0; 0.0 0.0 -4.0])
-julia> norm(A - L*U)
-0.0
-'''
+    computeLUP(A)
+Compute and return PLU decomposition `LU = PA` of square matrix `A`.  
+It uses partial pivoting to be able to compute all square matrices.
+Calls the functions:
+--> compute_Pk(Ã, k): for computing the pivoting row, and the permutation matrix.
+--> compute_Lk(Ã, k): for computing the Lk and Lk_inverse.
 """
-
-
 function computeLUP(A)
-    println("\n", "****ComputeLUP(A):")
+
     N = size(A)[1]
 
     #Id = Matrix{Float64}(I, N, N) # N x N identity matrix
@@ -37,52 +21,39 @@ function computeLUP(A)
     Ã  = copy(A) # initialize. Ã corresponds to A as it goes under elimination stages
 
     for k = 1:N-1 # march across columns
-        println("\n", "Current k: ", k, " with pivot value: ", Ã[k,k] )
-        
-        println("\n", "\n", "---->ComputeLUP(A) calling Compute_Pk")
+
         (j, p) = compute_Pk(Ã, k)
         
         #update Ã
-        println("\n", "Updating Ã.= p*Ã ")
         Ã .= p * Ã
-        show(stdout, "text/plain", Ã)
-
-        println("\n", "Updating P .= p * P ")
+  
         #update permutation matrix
         P .= p * P
-        show(stdout, "text/plain", P)
 
-        println("\n", "\n", "---->ComputeLUP(A) calling Compute_Lk")
         (Lk, Lk_inv) = compute_Lk(Ã, k)
 
-        println("\n", "Ã .= Lk * Ã ")
         Ã .= Lk * Ã
-        show(stdout, "text/plain", Ã)
-
-        println("\n", "L .= L * Lk_inv ")
         L .= L * Lk_inv
-        show(stdout, "text/plain", L)
 
         if k>1 
             #do the swap
             (L[k, 1:k-1], L[j, 1:k-1]) = (L[j, 1:k-1], L[k, 1:k-1])
         end
-
     end
 
     U .= Ã
-    
 
     return (L, U, P)
 
 end
 
 """ 
-Finds row j, the row containing largest value in column k, including and below Ãkk.
-Also compute permutation matrix pK,J
+    compute_Pk(A, k)
+Finds row j, the row containing largest value in column k, including and below Ã[k,k].
+Also computes the permutation matrix p[k,j].
 """
 function compute_Pk(A, k)
-    println("\n", "--Inside compute_Pk()--")
+
     N = size(A)[1]
 
     Pk = create_identity(N) 
@@ -101,9 +72,6 @@ function compute_Pk(A, k)
 
     #update identity matrix
     (Pk[k, :], Pk[max_row, :]) = (Pk[max_row, :], Pk[k, :]) 
-    println("\n", "Row index of max value in column ", k, " is ", max_row, ". And max value is ", max)
-    println("\n", "P(", k, ",", max_row, ") = ")
-    show(stdout, "text/plain", Pk)
     
     return (max_row, Pk)
 
@@ -111,108 +79,98 @@ end
 
 """
     compute_Lk(A, k)
-Compute Lk and its inverse from A, assuming first k-1 columns have undergone elimination.
-
+Computes the Lk and its inverse from A, 
+assuming first k-1 columns have undergone elimination.
 """
 function compute_Lk(A, k)
-    println("\n", "--Inside compute_Lk()--")
+
     N = size(A)[1]
 
-    Lk = create_identity(N) # Matrix{Float64}(I, N, N)       # initialize as identity matrix
-    Lk_inv = create_identity(N)# Matrix{Float64}(I, N, N)   # initialize as identity matrix
+    Lk = create_identity(N) 
+    Lk_inv = create_identity(N)
 
-    println("\n", "--FOR LOOP--")
-    # now modify column k, strictly below diagonal (i = k+1:N)
     for i = k+1:N
-        println("\n", "-----------------")
-        println("\n", "Row (i): ", i, " Col k: ", k )
-
-        println("\n", "BEGGINNING MATRIX")
-        show(stdout, "text/plain", A)
-
-        println("\n", "Lk[i,k] = " , -A[i,k], " / ", A[k,k])
-        println("\n", "Lk_inv[i,k] = " , A[i,k], " / ", A[k,k])
-
-        Lk[i,k] = -A[i,k] / A[k,k]    # fill me in (compute elimination factors)
-        Lk_inv[i,k] = A[i,k] / A[k,k]  # fill me in (compute elimination factors)
-
-        println("\n", "-LK New value:")
-        show(stdout, "text/plain", Lk)
-        println("\n", "LK_INV New value:")
-        show(stdout, "text/plain", Lk_inv)
-        println("\n", "RESULTING MATRIX")
-        show(stdout, "text/plain", A)
-        println("\n", "-----------------")
+        Lk[i,k] = -A[i,k] / A[k,k]    
+        Lk_inv[i,k] = A[i,k] / A[k,k] 
     end
  
     return (Lk, Lk_inv)
 
 end
-"""
-Needs to solve Ax=b by first computing an LUP factorization
-Ax = b
-PAx = Pb
-LUx = Pb (Solve this by using forward and backward substitution) 
-"""
 
+"""
+    LUPsolve(A, b)
+Function that brings multiple functions together to assert the 
+correctness of the PLU decomposition by comparing A*x and b.
+Calls the functions:
+--> computeLUP(A): to retrieve L, U, P matrices.
+--> forward_sub(P, L, b, N): Function that solves Ly = b 
+    for y by using forward substitution, and returns y.
+--> backward_sub(U, y, N): Function that solves Ax = y 
+    for x by using backward substitution, and returns x.
+"""
 function LUPsolve(A, b)
     (L, U, P) = computeLUP(A)
     @assert L*U ≈ P*A
     
     N = size(L)[1]
-    y = zeros(N, 1)
-    #L[2,1] y[1] + L[2,2] y[2] = b[2]
-    #l[3,1] y[1] + l[3,2] y[2] + l[3.3] y[3] = b3
 
-    #y[2] = b[2] - (L[2,1] y[1]) / L[2, 2]
-    #y[3] = b[3] - (l[3,1] y[1] + l[3,2] y[2]) / l[3,3]
-    
-    c = copy(b)
-    c .= P*c
-    y[1] = c[1] / L[1, 1]
-    #solve Ly = ᵬ for y using forward substitution
+    y = forward_sub(P, L, b, N)
+    x = backward_sub(U, y, N) 
+
+    @assert A*x ≈ b
+    return
+
+end
+
+"""
+    forward_sub(P, L, b, N)
+Solves Ly = b for y by using forward substitution, and returns y.
+"""
+function forward_sub(P, L, b, N)
+   
+    y = zeros(N, 1)
+    ᵬ = copy(b)
+
+    ᵬ .= P*ᵬ
+
+    y[1] = ᵬ[1] / L[1, 1]
     for k = 2:N
         tmp = 0
         for i = 1:k-1
             tmp += L[k, i] * y[i]
         end
-        y[k] = c[k] - (tmp)/L[k,k]
+        y[k] = (ᵬ[k] - (tmp))/L[k,k]
     end
-    println("\n", "\n","*-*-*-*-*FINAL VALUES*-*-*-*-*")
-    println("\n", "Solved Ly = ᵬ for y: ", y)
-
-
-    #solve Ux = y for x using backward substitution
-    #U[N, N]   x[N] = y[N]
-    #U[N-1, N] x[N] + U[N-1, N-1] x[N-1] = y[N-1]
-    #U[N-2, N] x[N] + U[N-2, N-1] x[N-1] + U[N-2, N-2] x[N-2] = y[N-2]
-
-    #x[N] = y[N] / U[N, N]
-    #x[N-1] = y[N-1] - (U[N-1, N] x[N]) / U[N-1, N-1]
-    #x[N-2] = y[N-2] - (U[N-2, N] x[N] + U[N-2, N-1] x[N-1]) / U[N-2, N-2]
     
+    return y
+end
+
+"""
+    backward_sub(U, y, N): 
+Solves Ax = y for x by using backward substitution, and returns x.
+"""
+function backward_sub(U, y, N)
     u = copy(U)
     x = zeros(N, 1)
-    x[N] = y[N] / U[N, N]
+
+    x[N] = y[N] / u[N, N]
+
     for k = N-1:-1:1
         tmp = 0
         for i = N:-1:k+1
-            tmp += U[k, i] * x[i]
+            tmp += u[k, i] * x[i]
         end
-        x[k] = y[k] - (tmp)/U[k,k]
+        x[k] = (y[k] - (tmp))/u[k,k]
     end
-    println("\n", "Solved Ux = y for x: ", x)
-    #@assert A*x ≈ b
-    println("\n A*x: ", A*x)
-    println("\n b: ", b)
-    norm = sqrt(adjoint(A*x-b)*(A*x-b))
-    println("\n", norm[1])
-    @assert norm[1] ≈ 0
-    return
-
+    
+    return x
 end
 
-
+"""
+    create_identity(N)
+Creates an identity matrix with a size of N*N.
+"""
 function create_identity(N)
 
     I = Matrix{Float64}(undef, N, N)
@@ -226,23 +184,104 @@ function create_identity(N)
 end
 
 
-A = Matrix{Float64}(undef, 3, 3)
-A .= [6 -2 2;12 -8 6;3 -13 3]
-b = rand(3, 1)
-println("BBBBB: ", b)
+"""
+    test_one()
+Tests the LPU decomposition with N = 10, N = 100, N = 1000
+"""
+function test_one()
 
-#(L, U, P) = computeLUP(A)
-LUPsolve(A, b)
+    x = Matrix{Float64}(undef, 3, 1)
+    x .= [10;100;1000]
+    y = zeros(3, 1)
+    N=10
+    B = rand(N, N)
+    I = create_identity(N)
+    A = adjoint(B) * B + I
+    b = rand(N, 1)
+    y[1] = @elapsed LUPsolve(A, b)
+    N=100
+    B = rand(N, N)
+    I = create_identity(N)
+    A = adjoint(B) * B + I
+    b = rand(N, 1)
+    y[2] = @elapsed LUPsolve(A, b)
+    N=1000
+    B = rand(N, N)
+    I = create_identity(N)
+    A = adjoint(B) * B + I
+    b = rand(N, 1)
+    y[3] = @elapsed LUPsolve(A, b)
+    plot(x, y, seriestype = :scatter)
+end
 
+"""
+    test_two()
+Tests the LPU decomposition with incrementing N by 100 in each iteration starting from 10 up to 1000.
+"""
+function test_two()
+    N = 1000
+    increment = 100
+    x = 1:increment:N
+    y = zeros(div(N, increment), 1)
+    index = 1
+    for tmpN=10:increment:N
+        B = rand(tmpN, tmpN)
+        I = create_identity(tmpN)
+        A = adjoint(B) * B + I
+        b = rand(tmpN, 1)
+        y[index] = @elapsed LUPsolve(A, b)
+        index = index + 1
+    end
+    plot(x, y)
+end
 
-#=
-println("L:")
-show(stdout, "text/plain", L)
-println("\n", "U:")
-show(stdout, "text/plain", U)
-println("\n", "P:")
-show(stdout, "text/plain", P)
+#test_one()
+#q, r = vector
+#rho is a scalar measure of the resudial vector (or error)
+#p is a search direction
+#delta is optimal step size
 
+function conj_grad(A, x, b, e, max_iterations)
+    N = size(A)[1]
+    
+    r = zeros(N,1)
+    rho = zeros(N,1)
+    p = zeros(N,1)
+    beta = zeros(N,1)
+    delta = zeros(N,1)
 
-@assert L*U ≈ P*A "P*A is not equal to L*U"
-=#
+    r = (A * x) - b
+
+    for i = 2:max_iterations
+        
+        rho[i-1] = r[i - 1]T * r[i - 1]
+        if i==2
+            p[2] = r[1]
+        else
+            beta[i-1] = rho[i-1]/rho[i-2]
+            p[i] = r[i-1] + beta[i-1] * p[i-1]
+        end
+
+        q[i] = A * p[i]
+        delta[i] = rho[i-1]/(p[i]T *q[i])
+        x[i] = x[i-1] - (delta[i] * p[i])
+        r[i] = r[i-1] - (delta[i] * q[i])
+        
+        #calculate relative error
+        err = sqrt((adjoint(A*x - b) * (A*x-b))/ (adjoint(x) * (x)))
+        if err <= e
+            return
+        end
+
+    end
+end
+
+N = 10
+x = zeros(N, 1)
+b = rand(N,1)
+B = rand(N, N)
+I = create_identity(N)
+A = adjoint(B) * B + I
+e = 10e-6
+max_iterations = 100
+conj_grad(A, x, b, e, max_iterations)
