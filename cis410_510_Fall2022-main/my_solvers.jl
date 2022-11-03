@@ -119,7 +119,7 @@ function LUPsolve(A, b)
     x = backward_sub(U, y, N) 
 
     @assert A*x ≈ b
-    return
+    return x
 
 end
 
@@ -196,19 +196,19 @@ function test_one()
     N=10
     B = rand(N, N)
     I = create_identity(N)
-    A = adjoint(B) * B + I
+    A = transpose(B) * B + I
     b = rand(N, 1)
     y[1] = @elapsed LUPsolve(A, b)
     N=100
     B = rand(N, N)
     I = create_identity(N)
-    A = adjoint(B) * B + I
+    A = transpose(B) * B + I
     b = rand(N, 1)
     y[2] = @elapsed LUPsolve(A, b)
     N=1000
     B = rand(N, N)
     I = create_identity(N)
-    A = adjoint(B) * B + I
+    A = transpose(B) * B + I
     b = rand(N, 1)
     y[3] = @elapsed LUPsolve(A, b)
     plot(x, y, seriestype = :scatter)
@@ -227,7 +227,7 @@ function test_two()
     for tmpN=10:increment:N
         B = rand(tmpN, tmpN)
         I = create_identity(tmpN)
-        A = adjoint(B) * B + I
+        A = transpose(B) * B + I
         b = rand(tmpN, 1)
         y[index] = @elapsed LUPsolve(A, b)
         index = index + 1
@@ -235,53 +235,134 @@ function test_two()
     plot(x, y)
 end
 
-#test_one()
-#q, r = vector
-#rho is a scalar measure of the resudial vector (or error)
-#p is a search direction
-#delta is optimal step size
+################ HOMEWORK 2 #################
 
+"""
+    conj_grad(A, x, b, e, max_iterations)
+Performs the conjugate gradient (CG) algorithm to obtain an approximate solution x to the linear system Ax = b
+A is a positive definite matrix, x is a vector of initial guess, b is a RHS vector, e is the tolerance. 
+    """
 function conj_grad(A, x, b, e, max_iterations)
     N = size(A)[1]
     
-    r = zeros(N,1)
-    rho = zeros(N,1)
+    r = zeros(N,max_iterations+1)
     p = zeros(N,1)
+    q = zeros(N,1)
     beta = zeros(N,1)
     delta = zeros(N,1)
 
-    r = (A * x) - b
+    rho_old = 0
+    rho_new = 0
 
+    r[:, 1] = (A * x) - b
+    
     for i = 2:max_iterations
         
-        rho[i-1] = r[i - 1]T * r[i - 1]
+        rho_new = transpose(r[:, i - 1]) * r[:, i - 1]
         if i==2
-            p[2] = r[1]
+            p = r[:, 1]
         else
-            beta[i-1] = rho[i-1]/rho[i-2]
-            p[i] = r[i-1] + beta[i-1] * p[i-1]
+            beta = rho_new/rho_old
+            p = r[:, i-1] + beta * p
         end
 
-        q[i] = A * p[i]
-        delta[i] = rho[i-1]/(p[i]T *q[i])
-        x[i] = x[i-1] - (delta[i] * p[i])
-        r[i] = r[i-1] - (delta[i] * q[i])
+        q = A * p
+        delta = rho_new/(transpose(p)*q)
+        x = x - (delta * p)
+        r[:, i] = r[:, i-1] - (delta * q)
         
         #calculate relative error
-        err = sqrt((adjoint(A*x - b) * (A*x-b))/ (adjoint(x) * (x)))
-        if err <= e
-            return
-        end
+        err = sqrt((transpose(A*x - b) * (A*x - b))/ (transpose(x) * (x)))
 
+        #check convergence
+        if err[1,1] <= e
+            return x
+        end
+        rho_old = rho_new
     end
+
+    return 
 end
 
-N = 10
+"""
+    calculate_mape(cg_x, lup_x, N)
+Calculates the mean absolute percentage error between:
+cg_x: x vector obtained by conjugate gradient
+lup_x: x vector obtained by LUPsolve
+"""
+function calculate_mape(cg_x, lup_x, N)
+    mape = 0
+    for i=1:N
+        mape += abs(((lup_x[i] - cg_x[i])/lup_x[i]))
+    end
+    mape = mape / N
+    return mape
+end
+
+"""
+    test_cg()
+Runs the LPU decomposition, Conjugate Gradient with incrementing N by 100 in each iteration starting from 10 up to 1000
+while keeping track of Mean Absolute Percentage Error in each iteration. Then Plots these three results on the same graph.
+"""
+function test_cg()
+    N = 1000
+    e = 10e-6
+    increment = 100
+    
+    x_axis = 1:increment:N
+    time_cg = zeros(div(N, increment), 1)
+    time_lup = zeros(div(N, increment), 1)
+    mape = zeros(div(N, increment), 1)
+    
+    index = 1
+    for tmpN=10:increment:N
+        
+        max_iterations = tmpN
+        x = zeros(tmpN, 1)
+        B = rand(tmpN, tmpN)
+        I = create_identity(tmpN)
+        A = transpose(B) * B + I
+        b = rand(tmpN, 1)
+        
+        time_lup[index] = @elapsed (lup_x = LUPsolve(A, b))
+        time_cg[index] = @elapsed (cg_x = conj_grad(A, x, b, e, max_iterations))
+        mape[index] = calculate_mape(cg_x, lup_x, tmpN)
+        #println(" N: ", tmpN, " | MAPE: ", mape[index])
+        index = index + 1
+    end
+    
+    plot(x_axis,[time_lup, time_cg, mape], label = ["LUPsolve" "Conjugate Gradient" "Mean Absolute Percentage Error"], title = "Comparing CG and LUP")
+    xlabel!("N")
+    ylabel!("Time")
+    
+    #=
+    plot(x_axis,[time_cg, mape], label = [ "Conjugate Gradient" "Mean Absolute Percentage Error"], title = "Conjugate Gradient time graph with MAPE")
+    xlabel!("N")
+    ylabel!("Time")
+    =#
+end
+
+test_cg()
+
+#=
+N = 100
 x = zeros(N, 1)
 b = rand(N,1)
 B = rand(N, N)
 I = create_identity(N)
-A = adjoint(B) * B + I
+A = transpose(B) * B + I
 e = 10e-6
-max_iterations = 100
-conj_grad(A, x, b, e, max_iterations)
+max_iterations = N
+
+lup_x = LUPsolve(A, b)
+cg_x = conj_grad(A, x, b, e, max_iterations)
+mape = calculate_mape(cg_x, lup_x, N)
+
+println("Mean absolute percentage error of x calculated by Conjugate Gradient and x calculated by LUPsolve is: ", mape)
+println("Where N: ", N, " | Max iterations: ", max_iterations, " | e: ", e)
+=#
+
+
+
+
+
