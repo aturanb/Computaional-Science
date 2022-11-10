@@ -8,25 +8,16 @@ where k > 0 is the thermal diffusivity.
 
 Assume the temperature u(x, t) is zero at the boundaries:    
     u(0, t) = u(1, t) = 0
-
-Using second-order finite difference approx in space, and forward Euler in time. 
-This becomes y' = A*y + b(t), where A is the discrete Laplacian matrix, and 
-y0 = f(interior_spatial_nodes)
 =#
-
-# λ = Δt/Δx^2, Stability → λ ≤ 1/(2κ)
 
 κ = 2
 Δx = 0.1
-λ = 0.5*(1/(2κ))
-# take ∆t = 10^−1, 10^−2 and 10^−3 and report on how forward Euler performs
-Δt = round(λ*Δx^2, digits = 10)
-
+λ = 0.5*(1/(2κ)) # λ = Δt/Δx^2, Stability → λ ≤ 1/(2κ)
+Δt = round(λ*Δx^2, digits = 10) # take ∆t = 10^−1, 10^−2 and 10^−3 and report on how forward Euler performs
 Tf = 2
+
 M = Integer(Tf/Δt) # how many time steps to take
-
 N = Integer(1/Δx) # N+1 total spatial nodes
-
 
 x = collect(range(0, 1, step = Δx)) # all of the nodes
 x_int = x[2:end-1] #interior spatial nodes 
@@ -52,53 +43,44 @@ function f(x)
     return sin(π*x) # user specifed initial heat distribution
 end
 
-
 function b(t)
     return F.(x_int, t)
 end
 
+function exact(t, x)
+    return exp(-2t) * sin(π*x)
+end
+
+function my_RHS(t, y)
+    return A*y + b(t)
+end
 
 # Solve y' = Ay + b(t) with y0 = f(x_int)
 y0 = f.(x_int)
 
-y = Matrix{Float64}(undef,N+1, M+1)  # my entire solution at all nodes and all time steps.
+feY = zeros(N+1, M+1)  # my entire solution at all nodes and all time steps for forward euler.
+beY = zeros(N+1, M+1)  # my entire solution at all nodes and all time steps for backward euler.
 
 # fill in initial data:
-y[:, 1] = f.(x)
+feY[:, 1] = f.(x)
+beY[:, 1] = f.(x)
 
+# call my_backward_euler and my_forward_euler
+(t, tmpy) = my_forward_euler(0, y0, Tf, Δt, my_RHS)
+feY[2:N, :] = tmpy
+(t, tmpy) = my_backward_euler(0, y0, Tf, Δt, my_RHS)
+beY[2:N, :] = tmpy
 
-# Replace below with a call to my_forward_euler_linear()
-# forward Euler: y_n+1 = y_n + Δt*(A*y_n + b(t_n))
-# backward Euler: y_n+1 = y_n + Δt*(A*y_n+1 + b(t_n+1))
-
-
-
-#Forward
-for n = 1:M
-    # Fill in boundary condition 
-    y[1, n+1] = 0
-    y[N+1, n+1] = 0
-    # update remaining rows
-    y[2:N, n+1] = y[2:N, n] + Δt*(A*y[2:N, n] + b(t[n]))
-end
-
+xfine = collect(range(0, 1, step = Δx/100))
 #=
-#Backward
-for n = 1:M
-    # Fill in boundary condition 
-    y[1, n+1] = 0
-    y[N+1, n+1] = 0
-    # update remaining rows
-    slope = y[2:N, n] + Δt*(y[2:N, n])
-    y[2:N, n+1] = y[2:N, n] + Δt*(slope + b(t[n+1]))
+for n = 1:M+1
+    p = plot(x, feY[:, n], label = ["numerical_forward"])
+    plot!(x, beY[:, n], label = ["numerical_backward"])
+    plot!(xfine, exact.(t[n], xfine), label = ["exact"])
+    ylims!((0, 1))
+    display(p)
+    
+    sleep(0.1)
 end
 =#
-#(t, y) = my_forward_euler_linear(0, f.(x), Tf, Δt, A, b)
 
-plot(x, y[:, 1], legend = false)
-for n = 2:M+1
-    p = plot(x, y[:, n], Legend = false)
-    display(p)
-
-    #sleep(1)
-end
