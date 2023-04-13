@@ -72,7 +72,7 @@ feY[2:N, :] = tmpy
 beY[2:N, :] = tmpy
 
 xfine = collect(range(0, 1, step = Δx/100))
-#=
+
 for n = 1:M+1
     p = plot(x, feY[:, n], label = ["numerical_forward"])
     plot!(x, beY[:, n], label = ["numerical_backward"])
@@ -82,5 +82,5 @@ for n = 1:M+1
     
     sleep(0.1)
 end
-=#
+
 
